@@ -13,6 +13,7 @@ env:
 
 jobs:
   build:
+    # Visual Studio Enterprise 2022 build tools v143
     runs-on: windows-2022
 
     steps:
@@ -24,6 +25,22 @@ jobs:
     - name: Restore NuGet packages
       working-directory: ${{env.GITHUB_WORKSPACE}}
       run: nuget restore ${{env.SOLUTION_FILE_PATH}}
+
+    - name: Clone boost repo
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      run: git clone --recurse-submodules https://github.com/boostorg/boost.git
+
+    - name: Build boost library Step #1
+      working-directory: ${{env.GITHUB_WORKSPACE}}\boost
+      run: .\bootstrap.bat
+
+    - name: Build boost library Step #2
+      working-directory: ${{env.GITHUB_WORKSPACE}}\boost
+      run: .\b2
+
+    - name: Build boost library Step #3
+      working-directory: ${{env.GITHUB_WORKSPACE}}\boost
+      run: .\b2 headers
 
     - name: Build
       working-directory: ${{env.GITHUB_WORKSPACE}}
