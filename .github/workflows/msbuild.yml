@@ -30,16 +30,16 @@ jobs:
       working-directory: ${{env.GITHUB_WORKSPACE}}
       run: git clone --recurse-submodules https://github.com/boostorg/boost.git
 
-    - name: Build boost library Step #1
-      working-directory: ${{env.GITHUB_WORKSPACE}}\boost
+    - name: Build boost library Step 1
+      working-directory: ${{env.GITHUB_WORKSPACE}}/boost
       run: .\bootstrap.bat
 
-    - name: Build boost library Step #2
-      working-directory: ${{env.GITHUB_WORKSPACE}}\boost
+    - name: Build boost library Step 2
+      working-directory: ${{env.GITHUB_WORKSPACE}}/boost
       run: .\b2
 
-    - name: Build boost library Step #3
-      working-directory: ${{env.GITHUB_WORKSPACE}}\boost
+    - name: Build boost library Step 3
+      working-directory: ${{env.GITHUB_WORKSPACE}}/boost
       run: .\b2 headers
 
     - name: Build
