@@ -32,14 +32,17 @@ jobs:
 
     - name: Build boost library Step 1
       working-directory: ${{env.GITHUB_WORKSPACE}}/boost
-      run: .\bootstrap.bat
+      shell: cmd
+      run: call bootstrap.bat
 
     - name: Build boost library Step 2
       working-directory: ${{env.GITHUB_WORKSPACE}}/boost
+      shell: cmd
       run: .\b2
 
     - name: Build boost library Step 3
       working-directory: ${{env.GITHUB_WORKSPACE}}/boost
+      shell: cmd
       run: .\b2 headers
 
     - name: Build
