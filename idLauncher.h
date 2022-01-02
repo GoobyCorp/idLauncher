@@ -1,5 +1,13 @@
 #pragma once
 
+// internal includes
+#include "INIReader.h"
+
+// library includes
+#include <boost/filesystem.hpp>
+
+using namespace std;
+
 enum ProcessState {
 	PROCESS_STATE_SLEEP,
 	PROCESS_STATE_WAKE

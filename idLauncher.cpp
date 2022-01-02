@@ -8,14 +8,8 @@
 
 // internal includes
 #include "idLauncher.h"
-#include "INIReader.h"
-
-// library includes
-#include <boost/filesystem.hpp>
 
 namespace fs = boost::filesystem;
-
-using namespace std;
 
 const char MainModuleName[] = "DOOMEternalx64vk.exe";
 
@@ -373,7 +367,7 @@ int Launch(const char* filename, const char* args = NULL) {
         cout << "Generating default \"patches.ini\"" << endl;
 
         HANDLE hFile = CreateFileA("patches.ini", GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
-        const char* defaultIni = "[patches]\r\nUnsignedManifest=true\r\nChecksumChecks=true\r\nManifestHashes=true\r\nManifestSizes=true\r\nUnrestrictBinds=true\r\nBlockHTTP=true\r\nresource_loadMostRecent=true";
+        const char* defaultIni = "[patches]\r\nUnsignedManifest=true\r\nChecksumChecks=true\r\nManifestHashes=true\r\nManifestSizes=true\r\nUnrestrictCvarsAndBinds=true\r\nBlockHTTP=true\r\nresource_loadMostRecent=true";
         WriteFile(hFile, defaultIni, strlen(defaultIni), &bw, NULL);
         CloseHandle(hFile);
 
@@ -389,6 +383,7 @@ int Launch(const char* filename, const char* args = NULL) {
     // unsigned build-manifest.bin patch
     if (reader.GetBoolean("patches", "UnsignedManifest", true)) {
         cout << "Applying unsigned manifest patch..." << endl;
+
         if(PatchAddressEx(hProcess, "\x48\x83\xEC\x28\x49\x8B", "\xB8\x01\x00\x00\x00\xC3", "xxxxxx", (char*)mi.lpBaseOfDll, mi.SizeOfImage))
             Success();
         else
@@ -408,6 +403,7 @@ int Launch(const char* filename, const char* args = NULL) {
     // skip checking against hashes inside build-manifest.bin
     if (reader.GetBoolean("patches", "ManifestHashes", true)) {
         cout << "Applying manifest hashes patch..." << endl;
+
         if(PatchAddressEx(hProcess, "\x74\x20\x48\x8B\x07\x48\x8B\xCF\xFF\x50", "\xEB\x20\x48\x8B\x07\x48\x8B\xCF\xFF\x50", "xxxxxxxxxx", (char*)mi.lpBaseOfDll, mi.SizeOfImage))
             Success();
         else
@@ -417,17 +413,41 @@ int Launch(const char* filename, const char* args = NULL) {
     // skip checking against filesizes inside build-manifest.bin
     if (reader.GetBoolean("patches", "ManifestSizes", true)) {
         cout << "Applying manifest sizes patch..." << endl;
+
         if (PatchAddressEx(hProcess, "\xFF\x50\x68\x48\x3B\xC5\x74\x43", "\xFF\x50\x68\x48\x89\xC5\xEB\x43", "xxxxxxxx", (char*)mi.lpBaseOfDll, mi.SizeOfImage))
             Success();
         else
             Failed();
     }
 
+    /*
+    local gameProcess = "DOOMEternalx64vk.exe"
+    local gameModule = getAddress( gameProcess )
+    local t = aobscanex( "4C8B0EBA01000000488BCE448BF041FF51??8D", nil, nil, nil, gameModule, gameModule + getModuleSize( gameProcess ) )
+    t = tonumber( t[0], 16 ) + 0x3
+    unregisterSymbol( "bRestricted_ConsoleType" )
+    registerSymbol( "bRestricted_ConsoleType", t, true )
+
+    t = aobscanex( "4C8B0FBA01000000488BCF448BF041FF51??4C6BC507", nil, nil, nil, gameModule, gameModule + getModuleSize( gameProcess ) )
+    t = tonumber( t[0], 16 ) + 0x3
+    unregisterSymbol( "bRestricted_KeyPress" )
+    registerSymbol( "bRestricted_KeyPress", t, true )
+    */
+
     // unrestrict binds #1 and #2
-    if (reader.GetBoolean("patches", "UnrestrictBinds", true)) {
+    if (reader.GetBoolean("patches", "UnrestrictCvarsAndBinds", true)) {
         cout << "Applying unrestrict binds patches..." << endl;
-        BOOL ret0 = PatchAddressEx(hProcess, "\x08\x4C\x8B\x0E\xBA\x01", "\x08\x4C\x8B\x0E\xBA\x00", "xxxxxx", (char*)mi.lpBaseOfDll, mi.SizeOfImage);
-        BOOL ret1 = PatchAddressEx(hProcess, "\x08\x4C\x8B\x0F\xBA\x01", "\x08\x4C\x8B\x0F\xBA\x00", "xxxxxx", (char*)mi.lpBaseOfDll, mi.SizeOfImage);
+
+        BOOL ret0 = PatchAddressEx(hProcess,
+            "\x4C\x8B\x0E\xBA\x01\x00\x00\x00\x48\x8B\xCE\x44\x8B\xF0\x41\xFF\x51\x00\x8D",
+            "\x4C\x8B\x0E\xBA\x00\x00\x00\x00\x48\x8B\xCE\x44\x8B\xF0\x41\xFF\x51\x00\x8D",
+            "xxxxxxxxxxxxx?xx", (char*)mi.lpBaseOfDll, mi.SizeOfImage);
+
+        BOOL ret1 = PatchAddressEx(hProcess,
+            "\x4C\x8B\x0F\xBA\x01\x00\x00\x00\x48\x8B\xCF\x44\x8B\xF0\x41\xFF\x51\x00\x4C\x6B\xC5\x07",
+            "\x4C\x8B\x0F\xBA\x00\x00\x00\x00\x48\x8B\xCF\x44\x8B\xF0\x41\xFF\x51\x00\x4C\x6B\xC5\x07",
+            "xxxxxxxxxxxxxxxxx?xxxx", (char*)mi.lpBaseOfDll, mi.SizeOfImage);
+
         if (ret0)
             Success();
         else
@@ -452,6 +472,7 @@ int Launch(const char* filename, const char* args = NULL) {
     // resource_loadMostRecent
     if (reader.GetBoolean("patches", "resource_loadMostRecent", true)) {
         cout << "Applying resource_loadMostRecent patch..." << endl;
+
         BOOL ret0 = PatchAddressEx(hProcess, "\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\x40\x53\x48\x83\xEC\x50\x48\x8B\x84\x24\x88\x00\x00\x00\x48\x8B", "\x41\x83\xC9\x10\x53\xEB\x03\x90\xEB\xF6\x48\x83\xEC\x50\x48\x8B\x84\x24\x88\x00\x00\x00\x48\x8B", "xxxxxxxxxxxxxxxxxxxxxxxx", (char*)mi.lpBaseOfDll, mi.SizeOfImage);
         BOOL ret1 = PatchAddressEx(hProcess, "\x4C\x8D\x05\x3A\xE8\x37\x02", "\x4C\x8D\x05\x56\xEE\x37\x02", "xxxxxxx", (char*)mi.lpBaseOfDll, mi.SizeOfImage);
         if(ret0)
@@ -476,6 +497,7 @@ int Launch(const char* filename, const char* args = NULL) {
 	CloseHandle(hProcess);
 
     // wait on user input
+    cout << "Press \"ENTER\" to exit..." << endl;
     cin.get();
 
     return 0;
@@ -486,7 +508,7 @@ int main(int argc, char* argv[])
     if (argc == 1)  // without executable path and arguments
     {
         fs::path p(argv[0]);
-        cout << "Usage: " << p.filename().string() << " <executable path>[arguments]" << endl;
+        cout << "Usage: " << p.filename().string() << " <executable path> [arguments]" << endl;
         return 0;
     }
     else if (argc == 2) {  // executable path without arguments

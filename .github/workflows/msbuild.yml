@@ -26,24 +26,15 @@ jobs:
       working-directory: ${{env.GITHUB_WORKSPACE}}
       run: nuget restore ${{env.SOLUTION_FILE_PATH}}
 
-    - name: Clone boost repo
-      working-directory: ${{env.GITHUB_WORKSPACE}}
-      run: git clone --recurse-submodules https://github.com/boostorg/boost.git
-
-    - name: Build boost library Step 1
-      working-directory: ${{env.GITHUB_WORKSPACE}}/boost
-      shell: cmd
-      run: call bootstrap.bat
-
-    - name: Build boost library Step 2
-      working-directory: ${{env.GITHUB_WORKSPACE}}/boost
-      shell: cmd
-      run: .\b2
-
-    - name: Build boost library Step 3
-      working-directory: ${{env.GITHUB_WORKSPACE}}/boost
-      shell: cmd
-      run: .\b2 headers
+    - name: Build Boost
+      id: boost
+      uses: egor-tensin/build-boost@v1
+      with:
+        version: 1.78.0
+        libraries: filesystem program_options system
+        platform: x64
+        toolset: msvc143
+        configuration: Release
 
     - name: Build
       working-directory: ${{env.GITHUB_WORKSPACE}}
