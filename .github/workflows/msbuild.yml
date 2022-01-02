@@ -33,7 +33,7 @@ jobs:
         version: 1.78.0
         libraries: filesystem program_options system
         platform: x64
-        toolset: msvc143
+        toolset: vs2022
         configuration: Release
 
     - name: Build
