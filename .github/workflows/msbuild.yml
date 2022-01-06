@@ -33,6 +33,8 @@ jobs:
         version: 1.78.0
         libraries: filesystem algorithm program_options system
         platform: x64
+        static: 1
+        static-runtime: 1
         toolset: msvc143
         configuration: Release
 
