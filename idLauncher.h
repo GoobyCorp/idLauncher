@@ -1,10 +1,23 @@
 #pragma once
 
+// Windows includes
+#include <stdio.h>
+#include <string>
+#include <iostream>
+#include <windows.h>
+#include <tchar.h>
+#include <Psapi.h>
+#include <tlhelp32.h>
+
 // internal includes
 #include "INIReader.h"
 
 // library includes
+#include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/program_options.hpp>
+namespace fs = boost::filesystem;
+namespace po = boost::program_options;
 
 using namespace std;
 
@@ -45,3 +58,7 @@ Bright White    97  107
 
 #define COLOR_WHITE_FG 37
 #define COLOR_WHITE_BG (COLOR_GREEN_FG + 0x10)
+
+#define CONFIG_INI  "config.ini"
+#define DEFAULT_INI "[config]\r\nAutoExit=true\r\n\r\n[patches]\r\nUnsignedManifest=true\r\nChecksumChecks=true\r\nManifestHashes=true\r\nManifestSizes=true\r\nUnrestrictCvarsAndBinds=true\r\nBlockHTTP=true\r\nresource_loadMostRecent=true\r\n"
+#define STEAM_LAUNCH_URI "steam://rungameid/782330"

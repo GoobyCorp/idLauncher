@@ -1,17 +1,11 @@
-// Windows includes
-#include <stdio.h>
-#include <iostream>
-#include <windows.h>
-#include <tchar.h>
-#include <Psapi.h>
-#include <tlhelp32.h>
-
 // internal includes
 #include "idLauncher.h"
 
 namespace fs = boost::filesystem;
 
 const char MainModuleName[] = "DOOMEternalx64vk.exe";
+
+INIReader reader(CONFIG_INI);
 
 void Success() {
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -241,13 +235,13 @@ BOOL IsSteam(fs::path path) {
 	vector<string> files = GetFileList(path);
 	int i = 0;
 	for (auto it = files.begin(); it != files.end(); it++, i++) {
-		if (strstr((*it).c_str(), "steam_api64.dll") != NULL)
+		if ((*it).find_first_of("steam_api64.dll") != string::npos)
 			return TRUE;
 	}
 	return FALSE;
 }
 
-char* GetDoomArgs(int argc, char* argv[]) {
+/* char* GetDoomArgs(int argc, char* argv[]) {
     // argument to start on
     int startArg = 2;
 
@@ -277,7 +271,7 @@ char* GetDoomArgs(int argc, char* argv[]) {
 
     // return it
     return argComb;
-}
+} */
 
 int Launch(const char* filename, const char* args = NULL) {
     STARTUPINFOA si;
@@ -306,7 +300,7 @@ int Launch(const char* filename, const char* args = NULL) {
     // recreate the arguments
     if (args == NULL) {
         cout << "Startup directory: \"" << dir << "\"" << endl;
-        if (!CreateProcessA(NULL, (char*)p.string().c_str(), NULL, NULL, FALSE, 0, NULL, dir.c_str(), &si, &pi)) {
+        if (!CreateProcessA(NULL, /* (char*)p.string().c_str() */ (char*)STEAM_LAUNCH_URI, NULL, NULL, FALSE, 0, NULL, dir.c_str(), &si, &pi)) {
             cout << "CreateProcess failed!" << endl;
 
             return 1;
@@ -359,22 +353,18 @@ int Launch(const char* filename, const char* args = NULL) {
     cout << "Suspending..." << endl;
     SetProcessState(procId, PROCESS_STATE_SLEEP);
 
-    // parse patches.ini
-    INIReader reader("patches.ini");
-
     DWORD bw;
     if (reader.ParseError() != 0) {
-        cout << "Generating default \"patches.ini\"" << endl;
+        cout << "Generating default \"" << CONFIG_INI << "\"" << endl;
 
-        HANDLE hFile = CreateFileA("patches.ini", GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
-        const char* defaultIni = "[patches]\r\nUnsignedManifest=true\r\nChecksumChecks=true\r\nManifestHashes=true\r\nManifestSizes=true\r\nUnrestrictCvarsAndBinds=true\r\nBlockHTTP=true\r\nresource_loadMostRecent=true";
-        WriteFile(hFile, defaultIni, strlen(defaultIni), &bw, NULL);
+        HANDLE hFile = CreateFileA(CONFIG_INI, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+        WriteFile(hFile, DEFAULT_INI, strlen(DEFAULT_INI), &bw, NULL);
         CloseHandle(hFile);
 
-        INIReader reader("patches.ini");
+        INIReader reader(CONFIG_INI);
     }
 
-    cout << "Reading \"patches.ini\"..." << endl;
+    cout << "Reading \"" << CONFIG_INI << "\"..." << endl;
 
     cout << "Patching..." << endl;
 
@@ -486,7 +476,6 @@ int Launch(const char* filename, const char* args = NULL) {
             Failed();
     }
 
-    // resume after patching
     cout << "Resuming..." << endl;
     SetProcessState(procId, PROCESS_STATE_WAKE);
 
@@ -497,27 +486,77 @@ int Launch(const char* filename, const char* args = NULL) {
 	CloseHandle(hProcess);
 
     // wait on user input
-    cout << "Press \"ENTER\" to exit..." << endl;
-    cin.get();
+    if (!reader.GetBoolean("config", "AutoExit", true)) {
+        cout << "Press \"ENTER\" to exit..." << endl;
+        cin.get();
+    }
 
     return 0;
 }
 
+auto ReadFile(string_view path) -> string {
+    constexpr auto read_size = size_t(4096);
+    auto stream = fs::ifstream(path.data());
+    stream.exceptions(ios_base::badbit);
+
+    auto out = string();
+    auto buf = string(read_size, '\0');
+    while (stream.read(&buf[0], read_size)) {
+        out.append(buf, 0, stream.gcount());
+    }
+    out.append(buf, 0, stream.gcount());
+    return out;
+}
+
+// "D:\Program Files (x86)\Steam\steamapps\common\DOOMEternal\DOOMEternalx64vk.exe" "+com_skipIntroVideo 1 +g_infiniteAmmo 1 +crucible_CanUseInfiniteAmmoCheat 1 +p_infiniteBloodPunch 1"
 int main(int argc, char* argv[])
 {
-    if (argc == 1)  // without executable path and arguments
-    {
+    /* if (argc == 1) { // without executable path and arguments
         fs::path p(argv[0]);
         cout << "Usage: " << p.filename().string() << " <executable path> [arguments]" << endl;
         return 0;
-    }
-    else if (argc == 2) {  // executable path without arguments
+    } else if (argc == 2) {  // executable path without arguments
         cout << "Launching without arguments..." << endl;
         return Launch(argv[1]);
-    }
-    else if (argc >= 3) {  // executable path with arguments
+    } else if (argc >= 3) {  // executable path with arguments
         char* doomArgs = GetDoomArgs(argc, argv);
         cout << "Launching with arguments: \"" << doomArgs << "\"..." << endl;
         return Launch(argv[1], doomArgs);
+    } */
+
+    po::options_description desc("Options");
+    desc.add_options()
+        ("help,h", "Display the help message")
+        // ("path", po::value<string>()->required(), "Doom Eternal executable path")
+        ("argfile", po::value<string>()->zero_tokens()->composing(), "Doom Eternal argument file");
+
+    po::positional_options_description pos_desc;
+    // pos_desc.add("path", 1);
+    pos_desc.add("argfile", 1);
+
+    po::command_line_parser parser{ argc, argv };
+    parser.options(desc).positional(pos_desc).allow_unregistered();
+    po::parsed_options parsed_options = parser.run();
+
+    po::variables_map vm;
+    po::store(parsed_options, vm);
+    po::notify(vm);
+
+    if (vm.count("help")) {
+        cout << desc << endl;
+        return 0;
+    }
+    
+    string path = reader.Get("config", "Path", "");
+    if (path != "") {
+        if (vm.count("argfile")) {  // arguments
+            string doomArgs = ReadFile(vm["argfile"].as<string>());
+            boost::replace_all(doomArgs, "\r\n", " ");
+            boost::replace_all(doomArgs, "\n", " ");
+
+            Launch(path.c_str(), doomArgs.c_str());
+        } else {  // no arguments
+            Launch(path.c_str());
+        }
     }
 }
