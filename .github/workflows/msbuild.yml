@@ -31,7 +31,7 @@ jobs:
       uses: egor-tensin/build-boost@v1
       with:
         version: 1.78.0
-        libraries: filesystem program_options system
+        libraries: filesystem algorithm program_options system
         platform: x64
         toolset: msvc143
         configuration: Release
